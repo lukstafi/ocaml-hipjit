@@ -320,15 +320,17 @@ type stream = {
   mutable args_lifetimes : (lifetime list[@sexp.opaque]);
   mutable owned_events : delimited_event list;
   stream : hip_stream;
+  destroyed : atomic_bool;
 }
 
-let sexp_of_stream { args_lifetimes = _; owned_events; stream } =
+let sexp_of_stream { args_lifetimes = _; owned_events; stream; destroyed } =
   Sexplib0.Sexp.List
     [
       Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "args_lifetimes"; Sexplib0.Sexp.Atom "<opaque>" ];
       Sexplib0.Sexp.List
         [ Sexplib0.Sexp.Atom "owned_events"; sexp_of_list sexp_of_delimited_event owned_events ];
       Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "stream"; sexp_of_hip_stream stream ];
+      Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "destroyed"; sexp_of_atomic_bool destroyed ];
     ]
 
 let query_event event =
@@ -356,7 +358,12 @@ let release_stream stream =
   stream.owned_events <- []
 
 let no_stream =
-  { args_lifetimes = []; owned_events = []; stream = Ctypes.(coerce (ptr void) hip_stream null) }
+  {
+    args_lifetimes = [];
+    owned_events = [];
+    stream = Ctypes.(coerce (ptr void) hip_stream null);
+    destroyed = Atomic.make false;
+  }
 
 module Context = struct
   type t = hip_context
@@ -653,11 +660,20 @@ module Deviceptr = struct
 end
 
 module Module = struct
-  type func = hip_function
   type t = hip_module
 
-  let sexp_of_func (func : func) = sexp_of_voidp @@ Ctypes.to_voidp func
+  (* The function retains its module, so that the module's unload-on-GC finalizer cannot fire
+     while a kernel extracted from it is still reachable. *)
+  type func = { func : hip_function; owning_module : t }
+
   let sexp_of_t (module_ : t) = sexp_of_voidp @@ Ctypes.to_voidp module_
+
+  let sexp_of_func { func; owning_module } =
+    Sexplib0.Sexp.List
+      [
+        Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "func"; sexp_of_voidp @@ Ctypes.to_voidp func ];
+        Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "owning_module"; sexp_of_t owning_module ];
+      ]
 
   (* Note: on the AMD platform, [hipModuleLoadDataEx] ignores most JIT options; they are accepted
      for CUDA-driver-API compatibility. *)
@@ -739,7 +755,7 @@ module Module = struct
     let open Ctypes in
     let func = allocate_n hip_function ~count:1 in
     check "hip_module_get_function" @@ Hip.hip_module_get_function func module_ name;
-    !@func
+    { func = !@func; owning_module = module_ }
 
   let get_global module_ ~name =
     let open Ctypes in
@@ -845,12 +861,14 @@ module Stream = struct
     in
     let c_kernel_params = c_params |> CArray.of_list (p void) in
     check "hip_module_launch_kernel"
-    @@ Hip.hip_module_launch_kernel func (i2u grid_dim_x) (i2u grid_dim_y) (i2u grid_dim_z)
-         (i2u block_dim_x) (i2u block_dim_y) (i2u block_dim_z) (i2u shared_mem_bytes) stream.stream
+    @@ Hip.hip_module_launch_kernel func.Module.func (i2u grid_dim_x) (i2u grid_dim_y)
+         (i2u grid_dim_z) (i2u block_dim_x) (i2u block_dim_y) (i2u block_dim_z)
+         (i2u shared_mem_bytes) stream.stream
          (CArray.start c_kernel_params)
     @@ coerce (p void) (p @@ ptr void) null;
+    (* [func] is retained so the kernel's module is not unloaded while the launch is queued. *)
     stream.args_lifetimes <-
-      Remember (orig_params, c_params, c_kernel_params) :: stream.args_lifetimes
+      Remember (func, orig_params, c_params, c_kernel_params) :: stream.args_lifetimes
 
   let uint_of_hip_stream_flags ~non_blocking =
     let open Hip_ffi.Types_generated in
@@ -861,14 +879,17 @@ module Stream = struct
   let total_live_streams = Atomic.make 0
   let get_total_live_streams () = Atomic.get total_live_streams
 
+  (* Idempotent, because it is both part of the public API and a GC finalizer: only the first
+     call destroys the stream. *)
   let destroy stream =
-    (* hipStreamDestroy returns immediately when work is pending, so args_lifetimes must stay
-       alive until all queued GPU work completes. Synchronize first, then release. *)
-    (try check "hip_stream_synchronize" @@ Hip.hip_stream_synchronize stream.stream
-     with Hip_error _ -> ());
-    release_stream stream;
-    Atomic.decr total_live_streams;
-    check "hip_stream_destroy" @@ Hip.hip_stream_destroy stream.stream
+    if Atomic.compare_and_set stream.destroyed false true then (
+      (* hipStreamDestroy returns immediately when work is pending, so args_lifetimes must stay
+         alive until all queued GPU work completes. Synchronize first, then release. *)
+      (try check "hip_stream_synchronize" @@ Hip.hip_stream_synchronize stream.stream
+       with Hip_error _ -> ());
+      release_stream stream;
+      Atomic.decr total_live_streams;
+      check "hip_stream_destroy" @@ Hip.hip_stream_destroy stream.stream)
 
   let create ?(non_blocking = false) ?(lower_priority = 0) () =
     let open Ctypes in
@@ -878,7 +899,14 @@ module Stream = struct
     @@ Hip.hip_stream_create_with_priority stream
          (uint_of_hip_stream_flags ~non_blocking)
          lower_priority;
-    let stream = { args_lifetimes = []; owned_events = []; stream = !@stream } in
+    let stream =
+      {
+        args_lifetimes = [];
+        owned_events = [];
+        stream = !@stream;
+        destroyed = Atomic.make false;
+      }
+    in
     Stdlib.Gc.finalise destroy stream;
     stream
 

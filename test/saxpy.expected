@@ -10,5 +10,7 @@ event released after synchronize: true
 saxpy results correct: true
 device-to-device copy correct: true
 offset device-to-device copy correct: true
+kernel usable after dropping the module value: true
+stream destroy is idempotent: true
 use after free detected: true
 OK

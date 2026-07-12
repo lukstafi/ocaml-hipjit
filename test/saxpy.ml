@@ -92,6 +92,22 @@ let () =
       ok3 := false
   done;
   Printf.printf "offset device-to-device copy correct: %b\n%!" !ok3;
+  (* A kernel keeps its module alive even after the module value is dropped and GC'd. *)
+  let saxpy2 =
+    let module_2 = Hip.Module.load_data code in
+    Hip.Module.get_function module_2 ~name:"saxpy"
+  in
+  Gc.full_major ();
+  Hip.Stream.launch_kernel saxpy2 ~grid_dim_x ~block_dim_x ~shared_mem_bytes:0 stream
+    Hip.Stream.
+      [ Single a; Tensor dx; Tensor dy; Tensor dcopy; Size_t (Unsigned.Size_t.of_int n) ];
+  Hip.Stream.synchronize stream;
+  Printf.printf "kernel usable after dropping the module value: true\n%!";
+  (* Stream destruction is idempotent (manual destroy + GC finalizer must not double-free). *)
+  let stream2 = Hip.Stream.create () in
+  Hip.Stream.destroy stream2;
+  Hip.Stream.destroy stream2;
+  Printf.printf "stream destroy is idempotent: true\n%!";
   Hip.Deviceptr.mem_free dx;
   Hip.Deviceptr.mem_free dy;
   Hip.Deviceptr.mem_free dout;

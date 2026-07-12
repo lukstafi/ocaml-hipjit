@@ -303,7 +303,8 @@ end
 (** Loading of compiled code objects, and kernel retrieval. *)
 module Module : sig
   type func
-  (** A kernel extracted from a loaded module. *)
+  (** A kernel extracted from a loaded module. The value retains its module, so the module is not
+      unloaded while the kernel is reachable (or queued on a stream). *)
 
   val sexp_of_func : func -> Sexplib0.Sexp.t
 
@@ -360,8 +361,8 @@ module Stream : sig
       stream is destroyed (after synchronizing it) when the result is garbage-collected. *)
 
   val destroy : t -> unit
-  (** Synchronizes the stream, releases its bookkeeping, and destroys it. Note: streams are also
-      destroyed when garbage-collected. *)
+  (** Synchronizes the stream, releases its bookkeeping, and destroys it. Idempotent: streams are
+      also destroyed when garbage-collected, and only the first call takes effect. *)
 
   val get_device : t -> Device.t
   val get_device_id : t -> int
