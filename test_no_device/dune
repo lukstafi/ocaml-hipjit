@@ -1,0 +1,31 @@
+(executable
+ (name saxpy_code)
+ (modules saxpy_code)
+ (libraries hiprtc sexplib0))
+
+; On Windows, the hiprtc DLLs live in the HIP SDK's bin directory, which is not
+; necessarily on PATH; %{read:...} is the no-spaces junction to the SDK.
+
+(rule
+ (enabled_if
+  (= %{os_type} Win32))
+ (action
+  (setenv
+   PATH
+   "%{read:../src/hip-path.txt}/bin;%{env:PATH=}"
+   (with-stdout-to
+    saxpy_code.actual
+    (run ./saxpy_code.exe)))))
+
+(rule
+ (enabled_if
+  (<> %{os_type} Win32))
+ (action
+  (with-stdout-to
+   saxpy_code.actual
+   (run ./saxpy_code.exe))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff saxpy_code.expected saxpy_code.actual)))

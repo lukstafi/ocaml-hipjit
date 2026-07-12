@@ -1,0 +1,26 @@
+(rule
+ (enabled_if
+  (= %{os_type} Win32))
+ (target hip-path.txt)
+ (action
+  (run cmd "/C" call %{dep:hip-original-path.bat})))
+
+(rule
+ (enabled_if
+  (<> %{os_type} Win32))
+ (action
+  (with-stdout-to
+   hip-path.txt
+   (echo "%{env:HIP_PATH=/opt/rocm}"))))
+
+(library
+ (public_name hipjit.hiprtc)
+ (name hiprtc)
+ (modules hiprtc)
+ (libraries hiprtc_ffi sexplib0))
+
+(library
+ (public_name hipjit.hip)
+ (name hip)
+ (modules hip)
+ (libraries hip_ffi hiprtc sexplib0))

@@ -1,0 +1,52 @@
+(rule
+ (enabled_if
+  (<> %{os_type} Win32))
+ (action
+  (with-stdout-to
+   hiprtc-lib.txt
+   (echo "-lhiprtc"))))
+
+(rule
+ (enabled_if
+  (= %{os_type} Win32))
+ (action
+  (with-stdout-to
+   hiprtc-lib.txt
+   (echo "hiprtc.lib"))))
+
+(library
+ (public_name hipjit.hiprtc_ffi)
+ (name hiprtc_ffi)
+ (libraries ctypes.foreign sexplib0)
+ (flags :standard -w -9-11-27)
+ (ctypes
+  (external_library_name libhiprtc)
+  (build_flags_resolver
+   (vendored
+    (c_flags
+     :standard
+     -fPIC
+     ; ctypes cannot express C const qualifiers; GCC >= 14 makes the resulting
+     ; pointer mismatches an error by default.
+     -Wno-incompatible-pointer-types
+     -D__HIP_PLATFORM_AMD__
+     -I
+     %{read:../src/hip-path.txt}/include)
+    (c_library_flags
+     :standard
+     %{read:hiprtc-lib.txt}
+     -L
+     %{read:../src/hip-path.txt}/lib
+     -L
+     %{read:../src/hip-path.txt}/lib64)))
+  (headers
+   (include "hip/hiprtc.h"))
+  (type_description
+   (instance Types)
+   (functor Bindings_types))
+  (function_description
+   (concurrency unlocked)
+   (instance Functions)
+   (functor Bindings))
+  (generated_types Types_generated)
+  (generated_entry_point C)))

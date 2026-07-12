@@ -1,0 +1,16 @@
+at least one device: true
+device name non-empty: true
+gcn arch name is gfx*: true
+positive max threads per block: true
+positive multiprocessor count: true
+positive warp size: true
+positive free and total memory: true
+event not released after record: true
+event released after synchronize: true
+saxpy results correct: true
+device-to-device copy correct: true
+offset device-to-device copy correct: true
+kernel usable after dropping the module value: true
+stream destroy is idempotent: true
+use after free detected: true
+OK

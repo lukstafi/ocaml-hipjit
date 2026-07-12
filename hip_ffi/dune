@@ -1,0 +1,55 @@
+(rule
+ (enabled_if
+  (<> %{os_type} Win32))
+ (action
+  (with-stdout-to
+   hip-lib.txt
+   (echo "-lamdhip64"))))
+
+(rule
+ (enabled_if
+  (= %{os_type} Win32))
+ (action
+  (with-stdout-to
+   hip-lib.txt
+   (echo "amdhip64.lib"))))
+
+(library
+ (public_name hipjit.hip_ffi)
+ (name hip_ffi)
+ (libraries ctypes.foreign sexplib0)
+ (flags :standard -w -9-11-27)
+ (ctypes
+  (external_library_name libamdhip64)
+  (build_flags_resolver
+   (vendored
+    (c_flags
+     :standard
+     -fPIC
+     ; ctypes cannot express C const qualifiers; GCC >= 14 makes the resulting
+     ; pointer mismatches an error by default.
+     -Wno-incompatible-pointer-types
+     ; hipCtx* functions are deprecated on the AMD platform but bound for
+     ; compatibility with the CUDA driver API (and cudajit).
+     -Wno-deprecated-declarations
+     -D__HIP_PLATFORM_AMD__
+     -I
+     %{read:../src/hip-path.txt}/include)
+    (c_library_flags
+     :standard
+     %{read:hip-lib.txt}
+     -L
+     %{read:../src/hip-path.txt}/lib
+     -L
+     %{read:../src/hip-path.txt}/lib64)))
+  (headers
+   (include "hip/hip_runtime_api.h"))
+  (type_description
+   (instance Types)
+   (functor Bindings_types))
+  (function_description
+   (concurrency unlocked)
+   (instance Functions)
+   (functor Bindings))
+  (generated_types Types_generated)
+  (generated_entry_point C)))

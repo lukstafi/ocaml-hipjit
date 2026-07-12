@@ -1,0 +1,4 @@
+(executable
+ (name properties)
+ (modules properties)
+ (libraries hip hiprtc sexplib0))
