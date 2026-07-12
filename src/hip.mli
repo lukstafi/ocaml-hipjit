@@ -480,9 +480,9 @@ module Event : sig
   val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val create : ?blocking_sync:bool -> ?enable_timing:bool -> ?interprocess:bool -> unit -> t
-  (** The event is destroyed when the result is garbage-collected. *)
+  (** The event is destroyed when the result is garbage-collected (there is deliberately no public
+      [destroy]: it would double-destroy with the GC finalizer; see also {!Delimited_event}). *)
 
-  val destroy : t -> unit
   val query : t -> bool
 
   val record : t -> Stream.t -> unit
