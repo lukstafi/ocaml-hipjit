@@ -1,0 +1,50 @@
+; GPU-requiring tests; skipped when HIPJIT_NO_GPU=true (e.g. on CI).
+
+(executable
+ (name saxpy)
+ (modules saxpy)
+ (enabled_if
+  (<> %{env:HIPJIT_NO_GPU=false} true))
+ (libraries hip hiprtc))
+
+(executable
+ (name filter_output)
+ (modules filter_output))
+
+; On Windows, the HIP runtime and hiprtc DLLs live in the HIP SDK's bin
+; directory, which is not necessarily on PATH. The filter drops the banner
+; line that amdhip64_*.dll prints to stdout when it loads.
+
+(rule
+ (enabled_if
+  (and
+   (= %{os_type} Win32)
+   (<> %{env:HIPJIT_NO_GPU=false} true)))
+ (action
+  (setenv
+   PATH
+   "%{read:../src/hip-path.txt}/bin;%{env:PATH=}"
+   (with-stdout-to
+    saxpy.actual
+    (pipe-stdout
+     (run ./saxpy.exe)
+     (run ./filter_output.exe))))))
+
+(rule
+ (enabled_if
+  (and
+   (<> %{os_type} Win32)
+   (<> %{env:HIPJIT_NO_GPU=false} true)))
+ (action
+  (with-stdout-to
+   saxpy.actual
+   (pipe-stdout
+    (run ./saxpy.exe)
+    (run ./filter_output.exe)))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+  (<> %{env:HIPJIT_NO_GPU=false} true))
+ (action
+  (diff saxpy.expected saxpy.actual)))

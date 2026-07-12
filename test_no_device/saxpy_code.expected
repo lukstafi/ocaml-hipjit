@@ -1,0 +1,6 @@
+hiprtc version retrieved: true
+compiled code object: non-empty true
+code object is ELF: true
+compilation log: none
+compilation error reported: HIPRTC_ERROR_COMPILATION
+OK

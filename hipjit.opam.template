@@ -1,0 +1,5 @@
+post-messages: [
+  "hipjit requires the AMD HIP runtime and hiprtc libraries."
+  "On Linux, install ROCm (or the HIP runtime) and ensure HIP_PATH points at the installation prefix (defaults to /opt/rocm)."
+  "On Windows, install the AMD HIP SDK; the installer sets the HIP_PATH environment variable. The directory %HIP_PATH%\\bin must be on PATH at run time so that hiprtc DLLs are found."
+]
