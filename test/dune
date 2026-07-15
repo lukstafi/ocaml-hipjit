@@ -12,8 +12,9 @@
  (modules filter_output))
 
 ; On Windows, the HIP runtime and hiprtc DLLs live in the HIP SDK's bin
-; directory, which is not necessarily on PATH. The filter drops the banner
-; line that amdhip64_*.dll prints to stdout when it loads.
+; directory, which is not necessarily on PATH. HIP_PATH (the no-spaces junction)
+; is exported by the conf-hip opam package. The filter drops the banner line that
+; amdhip64_*.dll prints to stdout when it loads.
 
 (rule
  (enabled_if
@@ -23,7 +24,7 @@
  (action
   (setenv
    PATH
-   "%{read:../src/hip-path.txt}/bin;%{env:PATH=}"
+   "%{env:HIP_PATH=/opt/rocm}/bin;%{env:PATH=}"
    (with-stdout-to
     saxpy.actual
     (pipe-stdout

@@ -1,9 +1,3 @@
-setenv: [
-  [ PATH += "%{hipjit:hip-runtime-path}%" ]
-]
 post-messages: [
-  "hipjit needs the AMD HIP runtime and hiprtc libraries at run time."
-  "On Linux, install ROCm (or the HIP runtime); set HIP_PATH to the install prefix if it is not /opt/rocm."
-  "On Windows, install the AMD HIP SDK (the installer sets the HIP_PATH environment variable)."
-  "This package puts the SDK's bin directory on PATH through opam's environment (the hip-runtime-path variable, applied via setenv), so load the opam environment -- e.g. `eval $(opam env)`, or its PowerShell equivalent -- for the amdhip64/hiprtc DLLs to be found."
+  "hipjit needs the AMD HIP runtime and hiprtc libraries at build and run time; these are provided through the conf-hip package, which resolves the SDK, exports HIP_PATH, and puts the SDK's bin directory on PATH via opam's environment. Load the opam environment -- e.g. `eval $(opam env)`, or its PowerShell equivalent -- so the amdhip64/hiprtc libraries are found."
 ]
