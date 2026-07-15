@@ -34,3 +34,6 @@ setup.log
 
 # Local OPAM switch
 _opam/
+
+# Build-time-generated opam config (machine-specific HIP SDK path); see ./dune
+hipjit.config
