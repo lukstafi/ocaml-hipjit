@@ -32,15 +32,30 @@ Bindings to AMD HIP (`amdhip64`) and hiprtc, deliberately mirroring
   the event's device internally).
 - Most `hipModuleLoadDataEx` JIT options are ignored by the AMD runtime (kept for compatibility).
 
-## SDK discovery (build time)
+## SDK discovery (delegated to conf-hip)
 
-`src/dune` writes `hip-path.txt`: on Unix from `HIP_PATH` (default `/opt/rocm`); on Windows,
-`src/hip-original-path.bat` resolves `HIP_PATH` from the environment, then the registry (HKLM
-Session Manager Environment), then the newest `C:\Program Files\AMD\ROCm\*`, and creates an NTFS
-junction `%LOCALAPPDATA%\hip_path_link` to dodge spaces in paths (ocaml/ocaml#13917). The ffi
-dune files read this path for `-I`/`-L`; Windows links `amdhip64.lib`/`hiprtc.lib`, Unix
-`-lamdhip64`/`-lhiprtc`. `-D__HIP_PLATFORM_AMD__` is required. GCC >= 14 needs
-`-Wno-incompatible-pointer-types` (ctypes cannot express `const`).
+SDK discovery lives in the `conf-hip` / `conf-hip-config` opam packages (mirroring `conf-cuda` /
+`conf-cuda-config`), which `hipjit` depends on — not in this repo. They are not submitted to the
+opam repository yet, so they must be pinned from an opam-repository checkout before `hipjit` can be
+installed or built (see README); this must happen before `hipjit` is released. Their two-layer
+split:
+
+- `conf-hip-config` (discovery): resolves the SDK prefix and writes `conf-hip-config.config`
+  exposing `%{conf-hip-config:hip_path}%`. On Unix from `HIP_PATH` (default `/opt/rocm`); on
+  Windows a PowerShell `build:` resolves `HIP_PATH` from the environment, then the registry (HKLM
+  Session Manager Environment), then the newest `C:\Program Files\AMD\ROCm\*`, and creates an NTFS
+  junction `%LOCALAPPDATA%\hip_path_link` to dodge spaces in paths (ocaml/ocaml#13917) — `hip_path`
+  is that junction (forward-slashed, usable by both clang `-I` and `PATH`).
+- `conf-hip` (env + verify): compile-probes `hip/hip_runtime_api.h` + `hip/hiprtc.h`, then via
+  `setenv` exports `HIP_PATH = %{conf-hip-config:hip_path}%` and prepends `%{...}%/bin` to `PATH`
+  (the HIP-specific addition: AMD's Windows installer, unlike NVIDIA's, does not put the SDK bin on
+  PATH, and the hiprtc DLLs live there).
+
+So `HIP_PATH` (the junction) is present in the opam environment at both build and run time. The ffi
+dune files read `%{env:HIP_PATH}/include|lib|lib64` for `-I`/`-L`; Windows links
+`amdhip64.lib`/`hiprtc.lib`, Unix `-lamdhip64`/`-lhiprtc`. `-D__HIP_PLATFORM_AMD__` is required.
+GCC >= 14 needs `-Wno-incompatible-pointer-types` (ctypes cannot express `const`). Building from a
+clone requires the opam environment loaded (`eval $(opam env)`) so `HIP_PATH` is set.
 
 ## Testing
 

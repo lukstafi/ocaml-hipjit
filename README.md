@@ -29,13 +29,30 @@ Requirements:
 - **Linux**: install [ROCm](https://rocm.docs.amd.com/) (or at least the HIP runtime and hiprtc);
   set `HIP_PATH` if the installation prefix differs from `/opt/rocm`.
 - **Windows**: install the [AMD HIP SDK](https://www.amd.com/en/developer/resources/rocm-hub/hip-sdk.html).
-  The installer sets the `HIP_PATH` environment variable (the build also falls back to the
-  registry and to scanning `C:\Program Files\AMD\ROCm`). At run time, executables need
+  The installer sets the `HIP_PATH` environment variable. At run time, executables need
   `%HIP_PATH%\bin` on `PATH` so that the hiprtc DLLs are found (the HIP runtime itself is loaded
-  from the AMD driver in `System32`). Since the SDK installs under `C:\Program Files`, the build
-  creates an NTFS junction `%LOCALAPPDATA%\hip_path_link` to avoid spaces in paths.
+  from the AMD driver in `System32`).
 
-Then: `opam install hipjit` (or from a clone: `dune build && dune test`).
+SDK discovery is delegated to the `conf-hip` opam package (and its helper `conf-hip-config`), a
+dependency of `hipjit`. It resolves the SDK prefix (`HIP_PATH`, then — on Windows — the registry
+and a scan of `C:\Program Files\AMD\ROCm`), exports `HIP_PATH`, and prepends the SDK's `bin`
+directory to `PATH` through opam's environment. On Windows it exposes the SDK through a space-free
+NTFS junction `%LOCALAPPDATA%\hip_path_link` (clang's `-I` rejects spaces, and the SDK installs
+under `C:\Program Files`).
+
+> **Note.** `conf-hip` and `conf-hip-config` are not in the opam repository yet, so they must be
+> pinned before installing or building `hipjit`:
+>
+> ```sh
+> opam pin add conf-hip-config.1 <opam-repository>/packages/conf-hip-config/conf-hip-config.1
+> opam pin add conf-hip.1 <opam-repository>/packages/conf-hip/conf-hip.1
+> ```
+>
+> Without these pins the solver cannot satisfy `hipjit`'s `conf-hip` dependency. They will be
+> submitted to the opam repository before `hipjit` is released there.
+
+Then: `opam install hipjit`. Load the opam environment (`eval $(opam env)`, or its PowerShell
+equivalent) so that `HIP_PATH`/`PATH` are set before building from a clone (`dune build && dune test`).
 
 Tests that require a GPU are skipped when the environment variable `HIPJIT_NO_GPU=true`;
 `test_no_device` only needs the hiprtc library, not a GPU.

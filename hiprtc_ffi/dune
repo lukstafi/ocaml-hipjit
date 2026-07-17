@@ -31,14 +31,14 @@
      -Wno-incompatible-pointer-types
      -D__HIP_PLATFORM_AMD__
      -I
-     %{read:../src/hip-path.txt}/include)
+     %{env:HIP_PATH=/opt/rocm}/include)
     (c_library_flags
      :standard
      %{read:hiprtc-lib.txt}
      -L
-     %{read:../src/hip-path.txt}/lib
+     %{env:HIP_PATH=/opt/rocm}/lib
      -L
-     %{read:../src/hip-path.txt}/lib64)))
+     %{env:HIP_PATH=/opt/rocm}/lib64)))
   (headers
    (include "hip/hiprtc.h"))
   (type_description

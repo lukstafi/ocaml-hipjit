@@ -4,7 +4,8 @@
  (libraries hiprtc sexplib0))
 
 ; On Windows, the hiprtc DLLs live in the HIP SDK's bin directory, which is not
-; necessarily on PATH; %{read:...} is the no-spaces junction to the SDK.
+; necessarily on PATH; HIP_PATH (the no-spaces junction to the SDK) is exported by
+; the conf-hip opam package.
 
 (rule
  (enabled_if
@@ -12,7 +13,7 @@
  (action
   (setenv
    PATH
-   "%{read:../src/hip-path.txt}/bin;%{env:PATH=}"
+   "%{env:HIP_PATH=/opt/rocm}/bin;%{env:PATH=}"
    (with-stdout-to
     saxpy_code.actual
     (run ./saxpy_code.exe)))))

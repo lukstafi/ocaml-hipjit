@@ -34,6 +34,7 @@
    (>= 0.14.0))
   ctypes-foreign
   sexplib0
+  conf-hip
   (odoc :with-doc))
  (tags
   (hip rocm jit hiprtc gpu amd)))
