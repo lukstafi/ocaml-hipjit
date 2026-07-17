@@ -34,9 +34,11 @@ Bindings to AMD HIP (`amdhip64`) and hiprtc, deliberately mirroring
 
 ## SDK discovery (delegated to conf-hip)
 
-SDK discovery lives in the `conf-hip` / `conf-hip-config` opam packages (in the opam-repository,
-mirroring `conf-cuda` / `conf-cuda-config`), which `hipjit` depends on — not in this repo. Their
-two-layer split:
+SDK discovery lives in the `conf-hip` / `conf-hip-config` opam packages (mirroring `conf-cuda` /
+`conf-cuda-config`), which `hipjit` depends on — not in this repo. They are not submitted to the
+opam repository yet, so they must be pinned from an opam-repository checkout before `hipjit` can be
+installed or built (see README); this must happen before `hipjit` is released. Their two-layer
+split:
 
 - `conf-hip-config` (discovery): resolves the SDK prefix and writes `conf-hip-config.config`
   exposing `%{conf-hip-config:hip_path}%`. On Unix from `HIP_PATH` (default `/opt/rocm`); on
